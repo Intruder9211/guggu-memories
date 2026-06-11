@@ -895,15 +895,20 @@ export default function GuggusWorld() {
   // Handle Add Memory
   const handleAddMemory = async (newMemory) => {
   try {
-    console.log("Saving memory:", newMemory);
+    console.log("🚀 handleAddMemory called");
+    console.log("useFirebase =", useFirebase);
+    console.log("db =", db);
+    console.log("newMemory =", newMemory);
 
     if (useFirebase && db) {
+      console.log("Before Firestore save");
+
       const docRef = await addDoc(
         collection(db, "memories"),
         newMemory
       );
 
-      console.log("Firestore saved:", docRef.id);
+      console.log("After Firestore save", docRef.id);
 
       newMemory.id = docRef.id;
     }
@@ -924,12 +929,9 @@ export default function GuggusWorld() {
     console.error("Code:", error.code);
     console.error("Message:", error.message);
 
-    alert(error.message);
-
     showToast("Failed to save memory 🥺");
   }
 };
-
   // Handle Edit Memory
   const handleEditMemory = async (id, updatedFields) => {
     try {
