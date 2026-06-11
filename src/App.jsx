@@ -908,9 +908,10 @@ export default function GuggusWorld() {
       }
       showToast("Memory saved! 🌸");
     } catch (error) {
-      console.error("Error adding memory:", error);
-      showToast("Failed to save memory 🥺");
-    }
+  console.error("FULL FIREBASE ERROR:", error);
+  alert(error.message);
+  showToast("Failed to save memory 🥺");
+}
   };
 
   // Handle Edit Memory

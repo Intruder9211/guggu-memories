@@ -24,6 +24,8 @@ if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId) {
     storage = getStorage(app);
     useFirebase = true;
     console.log("Firebase initialized successfully! 🔥");
+    console.log("Firebase Mode:", useFirebase);
+console.log("Project:", FIREBASE_CONFIG.projectId);
   } catch (error) {
     console.error("Firebase initialization failed:", error);
   }
