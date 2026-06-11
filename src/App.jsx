@@ -894,25 +894,41 @@ export default function GuggusWorld() {
 
   // Handle Add Memory
   const handleAddMemory = async (newMemory) => {
-    try {
-      if (useFirebase && db) {
-        const docRef = await addDoc(collection(db, "memories"), newMemory);
-        newMemory.id = docRef.id;
-      }
-      
-      const updated = [newMemory, ...memories];
-      setMemories(updated);
-      
-      if (!useFirebase) {
-        localStorage.setItem("guggu_memories", JSON.stringify(updated));
-      }
-      showToast("Memory saved! 🌸");
-    } catch (error) {
-  console.error("FULL FIREBASE ERROR:", error);
-  alert(error.message);
-  showToast("Failed to save memory 🥺");
-}
-  };
+  try {
+    console.log("Saving memory:", newMemory);
+
+    if (useFirebase && db) {
+      const docRef = await addDoc(
+        collection(db, "memories"),
+        newMemory
+      );
+
+      console.log("Firestore saved:", docRef.id);
+
+      newMemory.id = docRef.id;
+    }
+
+    const updated = [newMemory, ...memories];
+    setMemories(updated);
+
+    if (!useFirebase) {
+      localStorage.setItem(
+        "guggu_memories",
+        JSON.stringify(updated)
+      );
+    }
+
+    showToast("Memory saved! 🌸");
+  } catch (error) {
+    console.error("🔥 FIRESTORE ERROR:", error);
+    console.error("Code:", error.code);
+    console.error("Message:", error.message);
+
+    alert(error.message);
+
+    showToast("Failed to save memory 🥺");
+  }
+};
 
   // Handle Edit Memory
   const handleEditMemory = async (id, updatedFields) => {
