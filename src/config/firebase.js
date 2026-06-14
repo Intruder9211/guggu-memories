@@ -16,6 +16,14 @@ let db = null;
 let storage = null;
 let useFirebase = false;
 
+console.log("Firebase configuration status:");
+console.log("- API Key:", FIREBASE_CONFIG.apiKey ? `LOADED (length: ${FIREBASE_CONFIG.apiKey.length})` : "MISSING ❌");
+console.log("- Project ID:", FIREBASE_CONFIG.projectId ? `LOADED (${FIREBASE_CONFIG.projectId})` : "MISSING ❌");
+console.log("- Auth Domain:", FIREBASE_CONFIG.authDomain ? "LOADED" : "MISSING ❌");
+console.log("- Storage Bucket:", FIREBASE_CONFIG.storageBucket ? "LOADED" : "MISSING ❌");
+console.log("- Messaging Sender ID:", FIREBASE_CONFIG.messagingSenderId ? "LOADED" : "MISSING ❌");
+console.log("- App ID:", FIREBASE_CONFIG.appId ? "LOADED" : "MISSING ❌");
+
 // Initialize Firebase only if the core config details are present
 if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId) {
   try {
@@ -24,8 +32,7 @@ if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId) {
     storage = getStorage(app);
     useFirebase = true;
     console.log("Firebase initialized successfully! 🔥");
-    console.log("Firebase Mode:", useFirebase);
-console.log("Project:", FIREBASE_CONFIG.projectId);
+    console.log("Firebase Mode (useFirebase):", useFirebase);
   } catch (error) {
     console.error("Firebase initialization failed:", error);
   }

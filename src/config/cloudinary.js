@@ -6,9 +6,9 @@ const CLOUDINARY_CONFIG = {
 export const isCloudinaryConfigured =
   !!(CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset);
 
-console.log("Cloud Name:", CLOUDINARY_CONFIG.cloudName);
-console.log("Preset:", CLOUDINARY_CONFIG.uploadPreset);
-console.log("Configured:", isCloudinaryConfigured);
+console.log("Cloud Name status:", CLOUDINARY_CONFIG.cloudName ? `LOADED (length: ${CLOUDINARY_CONFIG.cloudName.length})` : "MISSING ❌");
+console.log("Preset status:", CLOUDINARY_CONFIG.uploadPreset ? `LOADED (length: ${CLOUDINARY_CONFIG.uploadPreset.length})` : "MISSING ❌");
+console.log("Cloudinary Configured:", isCloudinaryConfigured);
 
 // Keep track of ongoing upload signatures to prevent duplicate uploads
 const activeUploads = new Set();
@@ -85,31 +85,66 @@ function uploadToCloudinaryXHR(file, onProgress) {
     const cloudName = CLOUDINARY_CONFIG.cloudName;
     const uploadPreset = CLOUDINARY_CONFIG.uploadPreset;
     
+    if (!cloudName || !uploadPreset) {
+      reject(new Error("Cloudinary credentials are not defined in the environment. Please check your VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET."));
+      return;
+    }
+    
     const xhr = new XMLHttpRequest();
     const type = file.type.startsWith("video") ? "video" : "image";
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/${type}/upload`;
     
     xhr.open("POST", url, true);
     
+    // Set 60 seconds timeout
+    xhr.timeout = 60000;
+    
     xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        onProgress(percent);
+      try {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      } catch (err) {
+        console.error("Error inside onprogress handler:", err);
       }
     };
     
     xhr.onload = () => {
-      if (xhr.status === 200) {
-        const response = JSON.parse(xhr.responseText);
-        resolve(response.secure_url);
-      } else {
-        const err = JSON.parse(xhr.responseText || "{}");
-        reject(new Error(err.error?.message || "Upload failed"));
+      try {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          if (response && response.secure_url) {
+            resolve(response.secure_url);
+          } else {
+            reject(new Error("Cloudinary response succeeded but did not return a secure_url."));
+          }
+        } else {
+          let errorMsg = `Upload failed with status ${xhr.status}`;
+          try {
+            const err = JSON.parse(xhr.responseText || "{}");
+            errorMsg = err.error?.message || errorMsg;
+          } catch (e) {
+            // Response was not JSON (e.g. HTML error page or empty response)
+            if (xhr.responseText) {
+              errorMsg = `${errorMsg}: ${xhr.responseText.substring(0, 150)}`;
+            } else {
+              errorMsg = `${errorMsg} (Empty response from server)`;
+            }
+          }
+          reject(new Error(errorMsg));
+        }
+      } catch (err) {
+        reject(err);
       }
     };
     
     xhr.onerror = () => {
-      reject(new Error("Network error during upload"));
+      reject(new Error("Network error during upload (possible CORS issue or connection failure)"));
+    };
+    
+    xhr.ontimeout = () => {
+      reject(new Error("Cloudinary upload request timed out after 60 seconds"));
     };
     
     const formData = new FormData();

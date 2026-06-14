@@ -43,6 +43,24 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+// Helper to timeout a promise
+function withTimeout(promise, ms, errorMessage = "Operation timed out") {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, ms);
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 // ── Floating petals ────────────────────────────────────────────
 function Petals() {
   const petals = ["🌸", "🌺", "🌼", "✨", "💮"];
@@ -894,44 +912,45 @@ export default function GuggusWorld() {
 
   // Handle Add Memory
   const handleAddMemory = async (newMemory) => {
-  try {
-    console.log("🚀 handleAddMemory called");
-    console.log("useFirebase =", useFirebase);
-    console.log("db =", db);
-    console.log("newMemory =", newMemory);
+    try {
+      console.log("🚀 handleAddMemory called");
+      console.log("useFirebase =", useFirebase);
+      console.log("db =", db);
+      console.log("newMemory =", newMemory);
 
-    if (useFirebase && db) {
-      console.log("Before Firestore save");
+      if (useFirebase && db) {
+        console.log("Before Firestore save");
 
-      const docRef = await addDoc(
-        collection(db, "memories"),
-        newMemory
-      );
+        const docRef = await withTimeout(
+          addDoc(collection(db, "memories"), newMemory),
+          15000,
+          "Firestore save timed out after 15 seconds. Please check your database connection or Firebase configurations."
+        );
 
-      console.log("After Firestore save", docRef.id);
+        console.log("After Firestore save", docRef.id);
+        newMemory.id = docRef.id;
+      }
 
-      newMemory.id = docRef.id;
+      const updated = [newMemory, ...memories];
+      setMemories(updated);
+
+      if (!useFirebase) {
+        localStorage.setItem(
+          "guggu_memories",
+          JSON.stringify(updated)
+        );
+      }
+
+      showToast("Memory saved! 🌸");
+    } catch (error) {
+      console.error("🔥 FIRESTORE ERROR:", error);
+      console.error("Code:", error.code || "N/A");
+      console.error("Message:", error.message || "Unknown error");
+
+      showToast(`Failed to save memory: ${error.message || "Unknown error"} 🥺`);
+      throw error; // Rethrow to prevent drawer closing and keep user input
     }
-
-    const updated = [newMemory, ...memories];
-    setMemories(updated);
-
-    if (!useFirebase) {
-      localStorage.setItem(
-        "guggu_memories",
-        JSON.stringify(updated)
-      );
-    }
-
-    showToast("Memory saved! 🌸");
-  } catch (error) {
-    console.error("🔥 FIRESTORE ERROR:", error);
-    console.error("Code:", error.code);
-    console.error("Message:", error.message);
-
-    showToast("Failed to save memory 🥺");
-  }
-};
+  };
   // Handle Edit Memory
   const handleEditMemory = async (id, updatedFields) => {
     try {
@@ -939,14 +958,18 @@ export default function GuggusWorld() {
       setMemories(updated);
 
       if (useFirebase && db) {
-        await updateDoc(doc(db, "memories", id), updatedFields);
+        await withTimeout(
+          updateDoc(doc(db, "memories", id), updatedFields),
+          10000,
+          "Firestore update timed out after 10 seconds"
+        );
       } else {
         localStorage.setItem("guggu_memories", JSON.stringify(updated));
       }
       showToast("Memory updated! 🌸");
     } catch (error) {
       console.error("Error editing memory:", error);
-      showToast("Failed to edit memory 🥺");
+      showToast(`Failed to edit memory: ${error.message || "Unknown error"} 🥺`);
     }
   };
 
@@ -957,14 +980,18 @@ export default function GuggusWorld() {
       setMemories(updated);
 
       if (useFirebase && db) {
-        await deleteDoc(doc(db, "memories", id));
+        await withTimeout(
+          deleteDoc(doc(db, "memories", id)),
+          10000,
+          "Firestore delete timed out after 10 seconds"
+        );
       } else {
         localStorage.setItem("guggu_memories", JSON.stringify(updated));
       }
       showToast("Memory deleted 🗑️");
     } catch (error) {
       console.error("Error deleting memory:", error);
-      showToast("Failed to delete memory 🥺");
+      showToast(`Failed to delete memory: ${error.message || "Unknown error"} 🥺`);
     }
   };
 
