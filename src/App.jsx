@@ -867,17 +867,30 @@ export default function GuggusWorld() {
           // If empty, seed Firestore with DEMO_MEMORIES
           if (data.length === 0) {
             console.log("Firestore collection 'memories' is empty. Seeding DEMO_MEMORIES...");
-            for (let i = 0; i < DEMO_MEMORIES.length; i++) {
-              const demo = DEMO_MEMORIES[i];
-              const docData = {
+            try {
+              for (let i = 0; i < DEMO_MEMORIES.length; i++) {
+                const demo = DEMO_MEMORIES[i];
+                const docData = {
+                  ...demo,
+                  createdAt: new Date(Date.now() - (DEMO_MEMORIES.length - i) * 60000).toISOString()
+                };
+                // Set 5 seconds timeout for each seed item write
+                const docRef = await withTimeout(
+                  addDoc(collection(db, "memories"), docData),
+                  5000,
+                  "Seed write timed out"
+                );
+                data.push({ id: docRef.id, ...docData });
+              }
+              data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            } catch (seedErr) {
+              console.error("Firestore seeding failed or timed out:", seedErr);
+              showToast("Firestore seeding failed/timed out. Falling back to local demo data. 🥺");
+              data = DEMO_MEMORIES.map((demo, i) => ({
                 ...demo,
                 createdAt: new Date(Date.now() - (DEMO_MEMORIES.length - i) * 60000).toISOString()
-              };
-              const docRef = await addDoc(collection(db, "memories"), docData);
-              data.push({ id: docRef.id, ...docData });
+              }));
             }
-            // Sort seeded data
-            data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           }
         } else {
           const stored = localStorage.getItem("guggu_memories");
