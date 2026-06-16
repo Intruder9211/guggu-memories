@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 import { db, useFirebase } from "./config/firebase";
@@ -59,6 +60,18 @@ function withTimeout(promise, ms, errorMessage = "Operation timed out") {
         reject(err);
       });
   });
+}
+
+// Extract Cloudinary public_id from URL
+function extractPublicId(url) {
+  if (!url || !url.includes("cloudinary.com")) return null;
+  const match = url.match(/\/upload\/(?:v\d+\/)?([^?#]+)/);
+  if (match && match[1]) {
+    const path = match[1];
+    const lastDot = path.lastIndexOf('.');
+    return lastDot !== -1 ? path.substring(0, lastDot) : path;
+  }
+  return null;
 }
 
 // ── Floating petals ────────────────────────────────────────────
@@ -242,7 +255,7 @@ function PasswordGate({ onUnlock }) {
 }
 
 // ── Gallery card ───────────────────────────────────────────────
-function MemoryCard({ memory, index, onClick }) {
+function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
   const [loaded, setLoaded] = useState(false);
   const [inView, setInView] = useState(false);
   const cardRef = useRef();
@@ -326,6 +339,40 @@ function MemoryCard({ memory, index, onClick }) {
       <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12, color: tokens.muted, fontWeight: 600 }}>{formatDate(memory.date)}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (deletingId === memory.id) return;
+              if (window.confirm("Are you sure you want to delete this sweet memory? 🥺")) {
+                onDelete(memory.id);
+              }
+            }}
+            disabled={deletingId !== null}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: deletingId === memory.id ? "not-allowed" : "pointer",
+              color: tokens.primary,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 4,
+              borderRadius: "50%",
+              transition: "transform 0.2s, background-color 0.2s",
+              opacity: deletingId === memory.id ? 0.5 : 0.8,
+            }}
+            onMouseEnter={e => { if (deletingId !== memory.id) { e.currentTarget.style.transform = "scale(1.2)"; e.currentTarget.style.backgroundColor = "rgba(232,99,122,0.1)"; } }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.backgroundColor = ""; }}
+            title="Delete Memory"
+          >
+            {deletingId === memory.id ? (
+              <span style={{ fontSize: 10, animation: "spin 1s linear infinite" }}>⏳</span>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            )}
+          </button>
         </div>
         <p style={{ fontSize: 14, lineHeight: 1.5, color: tokens.text, fontWeight: 600, margin: 0 }}>{memory.caption}</p>
       </div>
@@ -391,7 +438,7 @@ function CategoryCard({ categoryName, count, coverUrl, isVideo, onClick }) {
 }
 
 // ── Lightbox ───────────────────────────────────────────────────
-function Lightbox({ memories, index, onClose, onPrev, onNext, onEdit, onDelete }) {
+function Lightbox({ memories, index, onClose, onPrev, onNext, onEdit, onDelete, deletingId }) {
   const memory = memories[index];
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -422,9 +469,10 @@ function Lightbox({ memories, index, onClose, onPrev, onNext, onEdit, onDelete }
 
   if (!memory) return null;
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (deletingId) return;
     if (window.confirm("Are you sure you want to delete this sweet memory? 🥺")) {
-      onDelete(memory.id);
+      await onDelete(memory.id);
       onClose();
     }
   };
@@ -461,8 +509,24 @@ function Lightbox({ memories, index, onClose, onPrev, onNext, onEdit, onDelete }
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isEditing ? tokens.secondary : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
           </button>
           {/* Delete button */}
-          <button onClick={handleDelete} style={{ ...iconBtnStyle, color: tokens.primary }} title="Delete Memory">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+          <button
+            onClick={handleDelete}
+            disabled={deletingId !== null}
+            style={{
+              ...iconBtnStyle,
+              color: tokens.primary,
+              cursor: deletingId !== null ? "not-allowed" : "pointer",
+              opacity: deletingId !== null ? 0.5 : 1
+            }}
+            title="Delete Memory"
+          >
+            {deletingId === memory.id ? (
+              <span style={{ fontSize: 14, animation: "spin 1s linear infinite" }}>⏳</span>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            )}
           </button>
           <span style={{ borderLeft: "1px solid rgba(255,255,255,.2)", height: 24, margin: "0 4px" }} />
           <button onClick={onPrev} style={iconBtnStyle} title="Previous">
@@ -835,6 +899,7 @@ export default function GuggusWorld() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "" });
+  const [deletingId, setDeletingId] = useState(null);
 
   const showToast = useCallback((msg) => {
     setToast({ visible: true, message: msg });
@@ -862,7 +927,7 @@ export default function GuggusWorld() {
         if (useFirebase && db) {
           const q = query(collection(db, "memories"), orderBy("createdAt", "desc"));
           const snapshot = await getDocs(q);
-          data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
 
           // If empty, seed Firestore with DEMO_MEMORIES
           if (data.length === 0) {
@@ -988,9 +1053,12 @@ export default function GuggusWorld() {
 
   // Handle Delete Memory
   const handleDeleteMemory = async (id) => {
+    setDeletingId(id);
     try {
-      const updated = memories.filter(m => m.id !== id);
-      setMemories(updated);
+      const memoryToDelete = memories.find(m => m.id === id);
+      if (!memoryToDelete) {
+        throw new Error("Memory not found");
+      }
 
       if (useFirebase && db) {
         await withTimeout(
@@ -999,12 +1067,49 @@ export default function GuggusWorld() {
           "Firestore delete timed out after 10 seconds"
         );
       } else {
+        const updated = memories.filter(m => m.id !== id);
         localStorage.setItem("guggu_memories", JSON.stringify(updated));
       }
-      showToast("Memory deleted 🗑️");
+
+      // If URL is a Cloudinary URL, delete from Cloudinary
+      if (memoryToDelete.url && memoryToDelete.url.includes("cloudinary.com")) {
+        const publicId = extractPublicId(memoryToDelete.url);
+        const resourceType = memoryToDelete.type || "image";
+        if (publicId) {
+          try {
+            console.log("Triggering serverless Cloudinary deletion for public_id:", publicId);
+            const response = await fetch("/api/delete-cloudinary", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                public_id: publicId,
+                resource_type: resourceType,
+              }),
+            });
+            const data = response.ok ? await response.json() : null;
+            if (!response.ok) {
+              console.warn("Cloudinary asset deletion returned status", response.status, data);
+            } else {
+              console.log("Cloudinary asset deleted successfully:", publicId);
+            }
+          } catch (cloudinaryErr) {
+            console.error("Failed to delete asset from Cloudinary:", cloudinaryErr);
+          }
+        }
+      }
+
+      // Update state only after successful Firestore/local deletion
+      const updated = memories.filter(m => m.id !== id);
+      setMemories(updated);
+      showToast("Memory deleted permanently 🗑️");
     } catch (error) {
       console.error("Error deleting memory:", error);
       showToast(`Failed to delete memory: ${error.message || "Unknown error"} 🥺`);
+      throw error; // Rethrow to propagate to the Lightbox to prevent it from closing
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -1229,7 +1334,14 @@ export default function GuggusWorld() {
                   `}</style>
                   <div className="gallery-grid">
                     {filtered.map((m, i) => (
-                      <MemoryCard key={m.id} memory={m} index={i} onClick={setLightboxIndex} />
+                      <MemoryCard
+                        key={m.id}
+                        memory={m}
+                        index={i}
+                        onClick={setLightboxIndex}
+                        onDelete={handleDeleteMemory}
+                        deletingId={deletingId}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1272,6 +1384,7 @@ export default function GuggusWorld() {
           onNext={() => setLightboxIndex(i => (i + 1) % lightboxMemoriesList.length)}
           onEdit={handleEditMemory}
           onDelete={handleDeleteMemory}
+          deletingId={deletingId}
         />
       )}
 

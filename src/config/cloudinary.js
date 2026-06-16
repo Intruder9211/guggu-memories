@@ -124,7 +124,7 @@ function uploadToCloudinaryXHR(file, onProgress) {
           try {
             const err = JSON.parse(xhr.responseText || "{}");
             errorMsg = err.error?.message || errorMsg;
-          } catch (e) {
+          } catch {
             // Response was not JSON (e.g. HTML error page or empty response)
             if (xhr.responseText) {
               errorMsg = `${errorMsg}: ${xhr.responseText.substring(0, 150)}`;
