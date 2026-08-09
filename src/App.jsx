@@ -681,83 +681,147 @@ const arrowBtnStyle = {
 };
 
 // ── Upload drawer ──────────────────────────────────────────────
+const MAX_FILES = 20;
+
 function UploadDrawer({ open, onClose, onAdd, showToast }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  const [files, setFiles] = useState([]); // Array of { id, file, preview, type }
   const [caption, setCaption] = useState("");
   const [category, setCategory] = useState("Milestones");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [drag, setDrag] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState("");
   const fileRef = useRef();
 
-  function handleFile(f) {
-  if (!f || uploading) return;
-
-  setFile(f);
-
-  const reader = new FileReader();
-
-  reader.onload = (e) => {
-    setPreview(e.target.result);
+  const resetState = () => {
+    setFiles([]);
+    setCaption("");
+    setCategory("Milestones");
+    setDate(new Date().toISOString().split("T")[0]);
+    setUploadProgress(0);
+    setUploadStatus("");
   };
 
-  reader.readAsDataURL(f);
-}
+  const handleClose = () => {
+    if (uploading) return;
+    resetState();
+    onClose();
+  };
+
+  function handleFiles(selectedFiles) {
+    if (!selectedFiles || selectedFiles.length === 0 || uploading) return;
+    const fileList = Array.from(selectedFiles);
+
+    if (files.length >= MAX_FILES) {
+      showToast(`Maximum limit of ${MAX_FILES} images reached ⚠️`);
+      return;
+    }
+
+    let filesToAdd = fileList;
+    if (files.length + fileList.length > MAX_FILES) {
+      const allowedCount = MAX_FILES - files.length;
+      filesToAdd = fileList.slice(0, allowedCount);
+      showToast(`Only added ${allowedCount} photos to stay within ${MAX_FILES} images limit ⚠️`);
+    }
+
+    filesToAdd.forEach((f) => {
+      const isVideo = f.type.startsWith("video/");
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFiles((prev) => {
+          if (prev.length >= MAX_FILES) return prev;
+          return [
+            ...prev,
+            {
+              id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              file: f,
+              preview: e.target.result,
+              type: isVideo ? "video" : "image",
+            },
+          ];
+        });
+      };
+      reader.readAsDataURL(f);
+    });
+  }
+
+  function removeFile(id) {
+    if (uploading) return;
+    setFiles((prev) => prev.filter((item) => item.id !== id));
+  }
+
   async function submit() {
-    if ((!file && !caption) || uploading) return;
+    if ((files.length === 0 && !caption) || uploading) return;
     
     setUploading(true);
     setUploadProgress(0);
 
     try {
-     let finalUrl = preview;
+      const newMemories = [];
+      const total = files.length;
 
-if (file) {
-  if (!isCloudinaryConfigured) {
-    throw new Error("Cloudinary is not configured");
-  }
+      if (total > 0) {
+        if (!isCloudinaryConfigured) {
+          throw new Error("Cloudinary is not configured");
+        }
 
-  finalUrl = await uploadFileToCloudinary(
-  file,
-  (progress) => {
-    setUploadProgress(progress);
-  }
-);
+        for (let i = 0; i < total; i++) {
+          const item = files[i];
+          setUploadStatus(`Uploading media ${i + 1} of ${total}...`);
 
-  console.log("Uploaded URL:", finalUrl);
-}
+          const uploadedUrl = await uploadFileToCloudinary(
+            item.file,
+            (filePercent) => {
+              const overallPercent = Math.round(((i + filePercent / 100) / total) * 100);
+              setUploadProgress(overallPercent);
+            }
+          );
 
-      const newMemory = {
-        id: Date.now().toString(),
-        type: file?.type?.startsWith("video")  ? "video" : "image",
-        caption: caption || "A sweet memory 🌸",
-        category,
-        date,
-        url: finalUrl || `https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&q=80`,
-        createdAt: new Date().toISOString(),
-      };
+          const fileCaption = total === 1
+            ? (caption || "A sweet memory 🌸")
+            : (caption ? `${caption} (${i + 1}/${total})` : `A sweet memory #${i + 1} 🌸`);
 
-      await onAdd(newMemory);
+          newMemories.push({
+            id: `${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+            type: item.type,
+            caption: fileCaption,
+            category,
+            date,
+            url: uploadedUrl,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        setUploadProgress(100);
+      } else {
+        newMemories.push({
+          id: Date.now().toString(),
+          type: "image",
+          caption: caption || "A sweet memory 🌸",
+          category,
+          date,
+          url: `https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&q=80`,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      await onAdd(newMemories.length === 1 ? newMemories[0] : newMemories);
+      resetState();
       onClose();
-      // Reset state
-      setFile(null); setPreview(null); setCaption(""); setCategory("Milestones");
     } catch (err) {
       console.error(err);
       showToast(`Upload failed: ${err.message || "Unknown error"} 🥺`);
     } finally {
       setUploading(false);
+      setUploadStatus("");
     }
   }
 
   if (!open) return null;
 
-  const isVideo = file?.type.startsWith("video") || false;
-
   return (
     <div
-      onClick={e => { if (e.target === e.currentTarget && !uploading) onClose(); }}
+      onClick={e => { if (e.target === e.currentTarget && !uploading) handleClose(); }}
       style={{
         position: "fixed", inset: 0,
         background: "rgba(45,27,27,.4)",
@@ -768,61 +832,177 @@ if (file) {
       }}
     >
       <div style={{
-        background: tokens.surface, width: "100%", maxWidth: 520,
+        background: tokens.surface, width: "100%", maxWidth: 560,
         maxHeight: "90vh", borderRadius: 24, padding: 32,
         boxShadow: "0 20px 40px rgba(45,27,27,.12)",
         overflowY: "auto", position: "relative",
         animation: "slideUp .4s cubic-bezier(.16,1,.3,1)",
       }}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: tokens.text }}>Add a Memory ✨</h2>
-          <button onClick={onClose} disabled={uploading} style={{ background: "none", border: "none", cursor: uploading ? "not-allowed" : "pointer", color: tokens.muted, padding: 8, borderRadius: "50%", fontSize: 18, display: "flex", opacity: uploading ? 0.5 : 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: tokens.text, margin: 0 }}>Add Memories ✨</h2>
+            <p style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>Upload up to 20 photos or videos at once</p>
+          </div>
+          <button onClick={handleClose} disabled={uploading} style={{ background: "none", border: "none", cursor: uploading ? "not-allowed" : "pointer", color: tokens.muted, padding: 8, borderRadius: "50%", fontSize: 18, display: "flex", opacity: uploading ? 0.5 : 1 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
           </button>
         </div>
 
-        {/* Drop zone */}
-        {!preview ? (
+        {/* Selected Files Header counter */}
+        {files.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: tokens.text }}>
+              📷 Selected Photos ({files.length}/{MAX_FILES})
+            </span>
+            {!uploading && (
+              <button
+                onClick={() => setFiles([])}
+                style={{ background: "none", border: "none", color: tokens.primary, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Drop zone or File Grid */}
+        {files.length === 0 ? (
           <div
             onClick={() => !uploading && fileRef.current.click()}
             onDragOver={e => { e.preventDefault(); if (!uploading) setDrag(true); }}
             onDragLeave={() => setDrag(false)}
-            onDrop={e => { e.preventDefault(); setDrag(false); if (!uploading) handleFile(e.dataTransfer.files[0]); }}
+            onDrop={e => {
+              e.preventDefault();
+              setDrag(false);
+              if (!uploading && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+            }}
             style={{
               border: `2px dashed ${drag ? tokens.primary : "rgba(232,99,122,.25)"}`,
               background: drag ? "rgba(232,99,122,.06)" : "rgba(232,99,122,.02)",
-              borderRadius: 16, padding: "32px 20px",
+              borderRadius: 16, padding: "36px 20px",
               textAlign: "center", cursor: uploading ? "not-allowed" : "pointer",
               transition: "all .3s", marginBottom: 20,
               opacity: uploading ? 0.7 : 1,
             }}
           >
-            <div style={{ fontSize: 32, marginBottom: 10 }}>📷</div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: tokens.text, marginBottom: 4 }}>Drop photo or video here</p>
-            <p style={{ fontSize: 12, color: tokens.muted }}>or click to browse · JPG, PNG, MP4, MOV</p>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>📷</div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: tokens.text, marginBottom: 4 }}>Drop photos or videos here</p>
+            <p style={{ fontSize: 12, color: tokens.muted, marginBottom: 8 }}>Select up to 20 files at once · JPG, PNG, MP4, MOV</p>
+            <span style={{
+              display: "inline-block",
+              fontSize: 12,
+              fontWeight: 700,
+              color: tokens.primary,
+              background: "rgba(232,99,122,.1)",
+              padding: "4px 12px",
+              borderRadius: 20
+            }}>Max limit: 20 images</span>
           </div>
         ) : (
-          <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", marginBottom: 20, aspectRatio: "16/9", background: "#000" }}>
-            {isVideo ? (
-              <video src={preview} style={{ width: "100%", height: "100%", objectFit: "contain" }} controls muted />
-            ) : (
-              <img src={preview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(95px, 1fr))",
+            gap: 10,
+            marginBottom: 20,
+            maxHeight: 280,
+            overflowY: "auto",
+            padding: 4,
+            border: "1px solid rgba(45,27,27,.08)",
+            borderRadius: 16,
+            background: "rgba(0,0,0,.02)"
+          }}>
+            {files.map((item, idx) => (
+              <div key={item.id} style={{
+                position: "relative",
+                aspectRatio: "1",
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#000",
+                boxShadow: "0 2px 8px rgba(0,0,0,.1)"
+              }}>
+                {item.type === "video" ? (
+                  <video src={item.preview} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <img src={item.preview} alt={`preview-${idx}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                )}
+                {/* Index badge */}
+                <span style={{
+                  position: "absolute",
+                  bottom: 4,
+                  left: 4,
+                  background: "rgba(0,0,0,.6)",
+                  color: "#fff",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "2px 6px",
+                  borderRadius: 8
+                }}>
+                  #{idx + 1}
+                </span>
+                {/* Remove button */}
+                {!uploading && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeFile(item.id); }}
+                    style={{
+                      position: "absolute", top: 4, right: 4,
+                      background: "rgba(0,0,0,.65)", color: "#fff", border: "none",
+                      width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: "bold"
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* Add More card if under limit */}
+            {files.length < MAX_FILES && !uploading && (
+              <div
+                onClick={() => fileRef.current.click()}
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: 12,
+                  border: `2px dashed ${tokens.primary}`,
+                  background: "rgba(232,99,122,.05)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: tokens.primary,
+                  transition: "all .2s"
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(232,99,122,.1)"}
+                onMouseLeave={e => e.currentTarget.style.background = "rgba(232,99,122,.05)"}
+              >
+                <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
+                <span style={{ fontSize: 10, fontWeight: 700, marginTop: 4 }}>Add More</span>
+              </div>
             )}
-            <button onClick={() => { if (!uploading) { setFile(null); setPreview(null); } }} disabled={uploading} style={{
-              position: "absolute", top: 10, right: 10,
-              background: "rgba(0,0,0,.6)", color: "#fff", border: "none",
-              width: 32, height: 32, borderRadius: "50%", cursor: uploading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              opacity: uploading ? 0.5 : 1,
-            }}>✕</button>
           </div>
         )}
-        <input type="file" accept="image/*,video/*" ref={fileRef} style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
+
+        <input
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          ref={fileRef}
+          style={{ display: "none" }}
+          onChange={e => {
+            handleFiles(e.target.files);
+            e.target.value = null;
+          }}
+        />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 700, color: tokens.text, display: "block", marginBottom: 6 }}>Caption</label>
-            <input value={caption} onChange={e => setCaption(e.target.value)} disabled={uploading} placeholder="A sweet little moment..." style={inputStyle} />
+            <label style={{ fontSize: 13, fontWeight: 700, color: tokens.text, display: "block", marginBottom: 6 }}>
+              Caption {files.length > 1 ? "(applied to batch)" : ""}
+            </label>
+            <input value={caption} onChange={e => setCaption(e.target.value)} disabled={uploading} placeholder={files.length > 1 ? "Shared caption for these memories..." : "A sweet little moment..."} style={inputStyle} />
           </div>
           <div>
             <label style={{ fontSize: 13, fontWeight: 700, color: tokens.text, display: "block", marginBottom: 6 }}>Category</label>
@@ -839,17 +1019,17 @@ if (file) {
           {uploading && (
             <div style={{ marginTop: 4, marginBottom: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: tokens.primary, marginBottom: 6 }}>
-                <span>Uploading memory...</span>
+                <span>{uploadStatus || "Uploading memories..."}</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div style={{ width: "100%", background: "rgba(45,27,27,.05)", borderRadius: 10, height: 8, overflow: "hidden" }}>
-                <div style={{ width: `${uploadProgress}%`, background: tokens.primary, height: "100%", transition: "width .1s ease" }} />
+                <div style={{ width: `${uploadProgress}%`, background: tokens.primary, height: "100%", transition: "width .15s ease" }} />
               </div>
             </div>
           )}
 
           <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-            <button onClick={onClose} disabled={uploading} style={{
+            <button onClick={handleClose} disabled={uploading} style={{
               flex: "0 0 auto", background: "none",
               border: "2px solid rgba(45,27,27,.1)",
               color: tokens.muted, padding: "13px 24px",
@@ -870,7 +1050,11 @@ if (file) {
               onMouseEnter={e => { if (!uploading) e.currentTarget.style.transform = "translateY(-2px)"; }}
               onMouseLeave={e => { if (!uploading) e.currentTarget.style.transform = ""; }}
             >
-              {uploading ? "Saving Memory..." : "Save Memory 🌸"}
+              {uploading
+                ? `Uploading ${files.length > 1 ? `${files.length} Memories...` : "Memory..."}`
+                : files.length > 1
+                ? `Save ${files.length} Memories 🌸`
+                : "Save Memory 🌸"}
             </button>
           </div>
         </div>
@@ -989,27 +1173,35 @@ export default function GuggusWorld() {
   }, [unlocked, showToast]);
 
   // Handle Add Memory
-  const handleAddMemory = async (newMemory) => {
+  const handleAddMemory = async (newMemoryOrMemories) => {
     try {
       console.log("🚀 handleAddMemory called");
       console.log("useFirebase =", useFirebase);
       console.log("db =", db);
-      console.log("newMemory =", newMemory);
+      console.log("newMemoryOrMemories =", newMemoryOrMemories);
 
-      if (useFirebase && db) {
-        console.log("Before Firestore save");
+      const memoryArray = Array.isArray(newMemoryOrMemories)
+        ? newMemoryOrMemories
+        : [newMemoryOrMemories];
 
-        const docRef = await withTimeout(
-          addDoc(collection(db, "memories"), newMemory),
-          15000,
-          "Firestore save timed out after 15 seconds. Please check your database connection or Firebase configurations."
-        );
+      const savedMemories = [];
 
-        console.log("After Firestore save", docRef.id);
-        newMemory.id = docRef.id;
+      for (const mem of memoryArray) {
+        let memoryToSave = { ...mem };
+        if (useFirebase && db) {
+          console.log("Before Firestore save");
+          const docRef = await withTimeout(
+            addDoc(collection(db, "memories"), memoryToSave),
+            15000,
+            "Firestore save timed out after 15 seconds. Please check your database connection or Firebase configurations."
+          );
+          console.log("After Firestore save", docRef.id);
+          memoryToSave.id = docRef.id;
+        }
+        savedMemories.push(memoryToSave);
       }
 
-      const updated = [newMemory, ...memories];
+      const updated = [...savedMemories, ...memories];
       setMemories(updated);
 
       if (!useFirebase) {
@@ -1019,7 +1211,11 @@ export default function GuggusWorld() {
         );
       }
 
-      showToast("Memory saved! 🌸");
+      showToast(
+        savedMemories.length > 1
+          ? `${savedMemories.length} memories saved! 🌸`
+          : "Memory saved! 🌸"
+      );
     } catch (error) {
       console.error("🔥 FIRESTORE ERROR:", error);
       console.error("Code:", error.code || "N/A");
