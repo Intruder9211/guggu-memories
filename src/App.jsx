@@ -255,7 +255,7 @@ function PasswordGate({ onUnlock }) {
 }
 
 // ── Gallery card ───────────────────────────────────────────────
-function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
+function MemoryCard({ memory, index, onClick, onDelete, deletingId, showCategoryBadge }) {
   const [loaded, setLoaded] = useState(false);
   const [inView, setInView] = useState(false);
   const cardRef = useRef();
@@ -279,27 +279,34 @@ function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
       ref={cardRef}
       onClick={() => onClick(index)}
       style={{
-        breakInside: "avoid", marginBottom: 24,
-        background: tokens.surface, borderRadius: 20,
+        breakInside: "avoid",
+        marginBottom: 8,
+        background: tokens.surface,
+        borderRadius: 12,
         overflow: "hidden",
         boxShadow: "0 4px 12px rgba(45,27,27,.04)",
         border: "1px solid rgba(45,27,27,.03)",
         cursor: "pointer",
-        transition: "transform .4s cubic-bezier(.165,.84,.44,1), box-shadow .4s cubic-bezier(.165,.84,.44,1)",
-        animation: `cardAppear .6s ${index * 0.06}s cubic-bezier(.16,1,.3,1) both`,
+        transition: "transform .3s ease, box-shadow .3s ease",
+        animation: `cardAppear .5s ${index * 0.04}s cubic-bezier(.16,1,.3,1) both`,
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-8px) scale(1.015)"; e.currentTarget.style.boxShadow = "0 20px 40px rgba(45,27,27,.1)"; }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 24px rgba(45,27,27,.1)"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 12px rgba(45,27,27,.04)"; }}
     >
       {/* Media */}
-      <div style={{ position: "relative", overflow: "hidden", background: "rgba(232,213,255,.1)", borderRadius: "20px 20px 0 0", minHeight: 200 }}>
+      <div style={{ position: "relative", overflow: "hidden", background: "rgba(232,213,255,.1)", borderRadius: "12px 12px 0 0", minHeight: 80 }}>
         {memory.type === "video" && (
-          <div style={{ position: "absolute", top: 12, right: 12, background: "rgba(45,27,27,.75)", color: "#fff", padding: "4px 8px", borderRadius: 8, fontSize: 10, display: "flex", alignItems: "center", gap: 4, zIndex: 10, fontWeight: 700, letterSpacing: 0.5 }}>
+          <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(45,27,27,.75)", color: "#fff", padding: "2px 5px", borderRadius: 5, fontSize: 8, display: "flex", alignItems: "center", gap: 2, zIndex: 10, fontWeight: 700, letterSpacing: 0.5 }}>
             <span>📹</span> VIDEO
           </div>
         )}
+        {showCategoryBadge && (
+          <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(255,255,255,.88)", color: tokens.text, padding: "2px 5px", borderRadius: 8, fontSize: 8, zIndex: 10, fontWeight: 700, backdropFilter: "blur(4px)", boxShadow: "0 2px 4px rgba(0,0,0,.08)" }}>
+            {memory.category}
+          </div>
+        )}
         {!loaded && (
-          <div style={{ width: "100%", height: 200, background: "linear-gradient(135deg,#f9e9f0,#f0e9fa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>
+          <div style={{ width: "100%", height: 100, background: "linear-gradient(135deg,#f9e9f0,#f0e9fa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
             🌸
           </div>
         )}
@@ -313,8 +320,7 @@ function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
                 width: "100%", display: "block",
                 objectFit: "cover",
                 opacity: loaded ? 1 : 0,
-                transition: "opacity .6s ease",
-                maxHeight: 400,
+                transition: "opacity .5s ease",
               }}
               muted
               playsInline
@@ -328,17 +334,16 @@ function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
                 width: "100%", display: "block",
                 objectFit: "cover",
                 opacity: loaded ? 1 : 0,
-                transition: "opacity .6s ease",
-                maxHeight: 400,
+                transition: "opacity .5s ease",
               }}
             />
           )
         )}
       </div>
       {/* Info */}
-      <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ padding: "8px 8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: tokens.muted, fontWeight: 600 }}>{formatDate(memory.date)}</span>
+          <span style={{ fontSize: 10, color: tokens.muted, fontWeight: 600 }}>{formatDate(memory.date)}</span>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -356,7 +361,7 @@ function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: 4,
+              padding: 2,
               borderRadius: "50%",
               transition: "transform 0.2s, background-color 0.2s",
               opacity: deletingId === memory.id ? 0.5 : 0.8,
@@ -366,15 +371,15 @@ function MemoryCard({ memory, index, onClick, onDelete, deletingId }) {
             title="Delete Memory"
           >
             {deletingId === memory.id ? (
-              <span style={{ fontSize: 10, animation: "spin 1s linear infinite" }}>⏳</span>
+              <span style={{ fontSize: 9, animation: "spin 1s linear infinite" }}>⏳</span>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
             )}
           </button>
         </div>
-        <p style={{ fontSize: 14, lineHeight: 1.5, color: tokens.text, fontWeight: 600, margin: 0 }}>{memory.caption}</p>
+        <p style={{ fontSize: 11, lineHeight: 1.3, color: tokens.text, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{memory.caption}</p>
       </div>
     </div>
   );
@@ -1361,6 +1366,11 @@ export default function GuggusWorld() {
   // Filter memories inside the selected category, search-scoped
   const filtered = useMemo(() => {
     if (activeCategory === "All") return [];
+    if (activeCategory === "All Memories" || activeCategory === "All Photos") {
+      return sortedMemories.filter(m => {
+        return !search || m.caption.toLowerCase().includes(search.toLowerCase());
+      });
+    }
     
     return sortedMemories.filter(m => {
       const matchCat = m.category === activeCategory;
@@ -1393,7 +1403,7 @@ export default function GuggusWorld() {
 
       <div style={{ position: "relative", zIndex: 5 }}>
         {/* Header */}
-        <header style={{ padding: "clamp(40px,8vw,80px) 24px 24px", textAlign: "center", maxWidth: 800, margin: "0 auto" }}>
+        <header style={{ padding: "clamp(32px,6vw,80px) 16px 20px", textAlign: "center", maxWidth: 800, margin: "0 auto" }}>
           <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "clamp(18px,4vw,26px)", color: tokens.primary, fontStyle: "italic", marginBottom: 8 }}>Welcome to</p>
           <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: "clamp(36px,8vw,64px)", lineHeight: 1.1, marginBottom: 16, color: tokens.text }}>
             Guggu's <em style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 300 }}>World</em> 🌸
@@ -1439,12 +1449,16 @@ export default function GuggusWorld() {
 
         {activeCategory === "All" ? (
           /* HOMEPAGE - Categories Grid View */
-          <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px 80px" }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 24,
-            }}>
+          <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 14px 80px" }}>
+            <div className="categories-grid">
+              <CategoryCard
+                key="All Memories"
+                categoryName="All Memories 📸"
+                count={memories.length}
+                coverUrl={sortedMemories[0]?.url}
+                isVideo={sortedMemories[0]?.type === "video"}
+                onClick={() => { setActiveCategory("All Memories"); setSearch(""); }}
+              />
               {sortedCategories.map(cat => (
                 <CategoryCard
                   key={cat.name}
@@ -1467,51 +1481,80 @@ export default function GuggusWorld() {
         ) : (
           /* SUB-GALLERY PAGE - Images within Selected Category */
           <>
-            <section style={{ maxWidth: 1200, margin: "0 auto 32px", padding: "0 24px", textAlign: "center" }}>
-              {/* Back Button */}
-              <button
-                onClick={() => { setActiveCategory("All"); setSearch(""); }}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  background: tokens.surface, color: tokens.primary,
-                  border: `2px solid rgba(232,99,122,.15)`,
-                  padding: "10px 24px", borderRadius: 30,
-                  fontFamily: "'Nunito',sans-serif", fontWeight: 700, fontSize: 14,
-                  cursor: "pointer", transition: "all .3s",
-                  boxShadow: "0 4px 12px rgba(45,27,27,.03)",
-                  marginBottom: 32,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateX(-4px)"; e.currentTarget.style.borderColor = tokens.primary; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "rgba(232,99,122,.15)"; }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                Back to Categories
-              </button>
+            <section style={{ maxWidth: 1200, margin: "0 auto 24px", padding: "0 14px", textAlign: "center" }}>
+              {/* Back Button & Category Pills */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                <button
+                  onClick={() => { setActiveCategory("All"); setSearch(""); }}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    background: tokens.surface, color: tokens.primary,
+                    border: `2px solid rgba(232,99,122,.15)`,
+                    padding: "8px 20px", borderRadius: 30,
+                    fontFamily: "'Nunito',sans-serif", fontWeight: 700, fontSize: 13,
+                    cursor: "pointer", transition: "all .3s",
+                    boxShadow: "0 4px 12px rgba(45,27,27,.03)",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = "translateX(-4px)"; e.currentTarget.style.borderColor = tokens.primary; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "rgba(232,99,122,.15)"; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                  All Categories
+                </button>
+
+                {/* Category Pills Slider */}
+                <div style={{
+                  display: "flex", gap: 8, overflowX: "auto", maxWidth: "100%", padding: "4px 8px 12px",
+                  WebkitOverflowScrolling: "touch", scrollbarWidth: "none"
+                }}>
+                  {["All Memories", ...REAL_CATEGORIES].map(cat => {
+                    const isActive = activeCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => { setActiveCategory(cat); setSearch(""); }}
+                        style={{
+                          background: isActive ? tokens.primary : tokens.surface,
+                          color: isActive ? "#fff" : tokens.text,
+                          border: `1.5px solid ${isActive ? tokens.primary : "rgba(232,99,122,.15)"}`,
+                          padding: "6px 14px", borderRadius: 20,
+                          fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+                          cursor: "pointer", transition: "all .2s ease",
+                          boxShadow: isActive ? "0 4px 12px rgba(232,99,122,.3)" : "none",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Sub-header inside category */}
-              <div style={{ textAlign: "center", marginBottom: 28 }}>
-                <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: "clamp(28px,6vw,42px)", color: tokens.text, margin: "0 0 8px" }}>
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: "clamp(24px,5vw,38px)", color: tokens.text, margin: "0 0 4px" }}>
                   {activeCategory}
                 </h2>
-                <p style={{ fontSize: 14, color: tokens.muted, fontWeight: 600 }}>
+                <p style={{ fontSize: 13, color: tokens.muted, fontWeight: 600 }}>
                   {filtered.length} {filtered.length === 1 ? "Photo" : "Photos"}
                 </p>
               </div>
 
               {/* Search Bar scoped within category */}
               <div style={{ maxWidth: 480, margin: "0 auto", position: "relative" }}>
-                <svg style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: tokens.muted, pointerEvents: "none" }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                <svg style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: tokens.muted, pointerEvents: "none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder={`Search memories in ${activeCategory}...`}
-                  style={{ width: "100%", padding: "13px 20px 13px 48px", borderRadius: 30, border: "1px solid rgba(45,27,27,.08)", background: tokens.surface, color: tokens.text, fontFamily: "'Nunito',sans-serif", fontSize: 15, outline: "none", boxShadow: "0 4px 12px rgba(45,27,27,.03)", transition: "all .3s" }}
+                  style={{ width: "100%", padding: "11px 18px 11px 44px", borderRadius: 30, border: "1px solid rgba(45,27,27,.08)", background: tokens.surface, color: tokens.text, fontFamily: "'Nunito',sans-serif", fontSize: 14, outline: "none", boxShadow: "0 4px 12px rgba(45,27,27,.03)", transition: "all .3s" }}
                 />
               </div>
             </section>
 
             {/* Gallery Grid */}
-            <main style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px 80px" }}>
+            <main style={{ maxWidth: 1400, margin: "0 auto", padding: "0 14px 80px" }}>
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "60px 24px" }}>
                   <div style={{ fontSize: 64, marginBottom: 16 }}>🥺</div>
@@ -1519,11 +1562,12 @@ export default function GuggusWorld() {
                   <p style={{ color: tokens.muted, fontSize: 14 }}>Try a different search query or upload new photos</p>
                 </div>
               ) : (
-                  <div>        
+                <div>        
                   <style>{`
-                    @media (min-width: 640px) { .gallery-grid { column-count: 2 !important; } }
-                    @media (min-width: 1024px) { .gallery-grid { column-count: 3 !important; } }
-                    @media (min-width: 1280px) { .gallery-grid { column-count: 4 !important; } }
+                    .gallery-grid { column-count: 3 !important; column-gap: 8px; width: 100%; }
+                    @media (min-width: 640px) { .gallery-grid { column-count: 3 !important; column-gap: 16px; } }
+                    @media (min-width: 1024px) { .gallery-grid { column-count: 4 !important; column-gap: 20px; } }
+                    @media (min-width: 1400px) { .gallery-grid { column-count: 5 !important; } }
                     @keyframes cardAppear { 0%{opacity:0;transform:translateY(30px)} 100%{opacity:1;transform:translateY(0)} }
                     @keyframes pulseLight { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
                     @keyframes addPulse { 0%,100%{box-shadow:0 10px 25px rgba(232,99,122,.4)} 50%{box-shadow:0 10px 35px rgba(232,99,122,.65)} }
@@ -1537,6 +1581,7 @@ export default function GuggusWorld() {
                         onClick={setLightboxIndex}
                         onDelete={handleDeleteMemory}
                         deletingId={deletingId}
+                        showCategoryBadge={activeCategory === "All Memories"}
                       />
                     ))}
                   </div>
